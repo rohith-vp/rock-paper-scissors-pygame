@@ -3,6 +3,8 @@ import os
 import time
 import random
 
+from HandSprite import HandSprite
+
 
 class Game:
     def __init__(self, size, caption, icon_path):
@@ -27,9 +29,17 @@ class Game:
         # Initialize default system font at size 36 for all game text
         self.font = pygame.font.Font(None, 36)
 
-        # Load game assets and setup display rectangles
+        # Initialize game clock for controlling frame rate
+        self.clock = pygame.time.Clock()
+
+        # Create sprite groups
+        self.all_sprites = pygame.sprite.Group()
+        self.computer_hand = pygame.sprite.GroupSingle()
+        self.player_hands = pygame.sprite.Group()
+
+        # Load game assets and setup sprites
         self.init_imgs()
-        self.init_rects()
+        self.init_sprites()
 
         # Setup animation timing - used for shuffling computer's hand
         self.prev_time = time.time()
@@ -73,42 +83,40 @@ class Game:
         self.scissors_image = pygame.transform.scale(self.scissors_image, (100, 100))
     
 
-    def init_rects(self):
-        """Initialize and position all game rectangles.
+    def init_sprites(self):
+        """Initialize and position all game sprites.
         
-        Creates rectangles for both computer (top) and player (bottom) hands.
-        Positions them in the center of their respective screen halves:
-        - Computer's hand at y=150 (top half)
-        - Player's hand at y=450 (bottom half)
-        All hands are centered horizontally at x=200.
+        Creates sprite objects for both computer (top) and player (bottom) hands.
+        Positions them in their respective screen positions:
+        - Computer's hand at y=150 (top)
+        - Player's hands at y=450 (bottom)
         """
-        # Create rectangles for computer's hand (top)
-        self.rock_rect_top = self.rock_image.get_rect()
-        self.paper_rect_top = self.paper_image.get_rect()
-        self.scissors_rect_top = self.scissors_image.get_rect()
+        # Create computer's hand sprite (initially rock)
+        self.computer_sprite = HandSprite(self.rock_image, (200, 150))
+        self.computer_sprite.type = 0
+        self.computer_hand.add(self.computer_sprite)
 
-        # Create rectangles for player's hand (bottom)
-        self.rock_rect_bottom = self.rock_image.get_rect()
-        self.paper_rect_bottom = self.paper_image.get_rect()
-        self.scissors_rect_bottom = self.scissors_image.get_rect()
+        # Create player's hand sprites
+        # Left rock
+        self.rock_left = HandSprite(self.rock_image, (75, 450))
+        self.rock_left.type = 0
         
-        # Create rectangles for side hands
-        self.rock_rect_left = self.rock_image.get_rect()
-        self.scissors_rect_right = self.scissors_image.get_rect()
+        # Center paper
+        self.paper_center = HandSprite(self.paper_image, (200, 450))
+        self.paper_center.type = 1
+        
+        # Right scissors
+        self.scissors_right = HandSprite(self.scissors_image, (325, 450))
+        self.scissors_right.type = 2
 
-        # Position computer's hand in top half (y=150)
-        self.rock_rect_top.center = (200, 150)
-        self.paper_rect_top.center = (200, 150)
-        self.scissors_rect_top.center = (200, 150)
-
-        # Position player's hand in bottom half (y=450)
-        self.rock_rect_bottom.center = (200, 450)
-        self.paper_rect_bottom.center = (200, 450)
-        self.scissors_rect_bottom.center = (200, 450)
-
-        # Position the side hands
-        self.rock_rect_left.center = (75, 450)  # Left side
-        self.scissors_rect_right.center = (325, 450)  # Right side
+        # Add player sprites to group
+        self.player_hands.add(self.rock_left)
+        self.player_hands.add(self.paper_center)
+        self.player_hands.add(self.scissors_right)
+        
+        # Selected player hand (shown after choice)
+        self.player_choice = HandSprite(self.rock_image, (200, 450))
+        self.player_choice.type = 0  # Initially rock
 
     
     # Render function
@@ -147,27 +155,30 @@ class Game:
         self.screen.blit(text_player_score, text_player_score_rect)
         self.screen.blit(text_bottom_instruction, text_bottom_instruction_rect)
         
-        # Draw computer hand
+        # Update computer's sprite image based on choice
         if self.computer_ch == 0:
-            self.screen.blit(self.rock_image, self.rock_rect_top)
+            self.computer_sprite.image = self.rock_image
         elif self.computer_ch == 1:
-            self.screen.blit(self.paper_image, self.paper_rect_top)
+            self.computer_sprite.image = self.paper_image
         elif self.computer_ch == 2:
-            self.screen.blit(self.scissors_image, self.scissors_rect_top)
+            self.computer_sprite.image = self.scissors_image
+        
+        # Draw computer hand
+        self.computer_hand.draw(self.screen)
             
-        # Draw player hand
+        # Draw player hands
         if self.playing:
-            self.screen.blit(self.rock_image, self.rock_rect_left)  # Rock on the left
-            self.screen.blit(self.paper_image, self.paper_rect_bottom) # Paper in the middle
-            self.screen.blit(self.scissors_image, self.scissors_rect_right)  # Scissors on the right
+            self.player_hands.draw(self.screen)
         else:
+            # Update and draw player's choice
             if self.player_ch == 0:
-                self.screen.blit(self.rock_image, self.rock_rect_bottom)
+                self.player_choice.image = self.rock_image
             elif self.player_ch == 1:
-                self.screen.blit(self.paper_image, self.paper_rect_bottom)
+                self.player_choice.image = self.paper_image
             elif self.player_ch == 2:
-                self.screen.blit(self.scissors_image, self.scissors_rect_bottom)
-            
+                self.player_choice.image = self.scissors_image
+            self.screen.blit(self.player_choice.image, self.player_choice.rect)
+
         # Update the display
         pygame.display.flip()
 
@@ -188,6 +199,7 @@ class Game:
         2 = Scissors
         """
         self.computer_ch = random.randint(0, 2)
+
 
     def score(self):
         """Calculate round result and update scores.
@@ -223,15 +235,11 @@ class Game:
         - Any click: Start new round
         """
         if self.playing:
-            # Check if click is on any of the bottom images
-            if self.rock_rect_left.collidepoint(pos):
-                self.player_ch = 0  # Rock
-                self.shuffling_hand = False
-            elif self.paper_rect_bottom.collidepoint(pos):
-                self.player_ch = 1  # Paper
-                self.shuffling_hand = False
-            elif self.scissors_rect_right.collidepoint(pos):
-                self.player_ch = 2  # Scissors
+            # Check if click is on any of the player hands
+            clicked_sprites = [s for s in self.player_hands if s.rect.collidepoint(pos)]
+            if clicked_sprites:
+                sprite = clicked_sprites[0]
+                self.player_ch = sprite.type
                 self.shuffling_hand = False
             else:
                 return  # Click was not on any image
@@ -320,6 +328,9 @@ class Game:
 
         # Update display
         self.render()
+        
+        # Control the frame rate (60 FPS)
+        self.clock.tick(60)
 
 
     def start_game(self):
