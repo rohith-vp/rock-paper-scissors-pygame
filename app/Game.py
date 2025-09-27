@@ -1,5 +1,6 @@
 import pygame
 import os
+import sys
 import time
 import random
 
@@ -40,6 +41,7 @@ class Game:
         # Load game assets and setup sprites
         self.init_imgs()
         self.init_sprites()
+        self.init_sfx()
 
         # Setup animation timing - used for shuffling computer's hand
         self.prev_time = time.time()
@@ -117,6 +119,13 @@ class Game:
         # Selected player hand (shown after choice)
         self.player_choice = HandSprite(self.rock_image, (200, 450))
         self.player_choice.type = 0  # Initially rock
+
+
+    def init_sfx(self):
+        self.win_sfx = pygame.mixer.Sound(os.path.join("res", "win.wav"))
+        self.loss_sfx = pygame.mixer.Sound(os.path.join("res", "loss.wav"))
+        self.draw_sfx = pygame.mixer.Sound(os.path.join("res", "draw.wav"))
+        self.shuffling_sfx = pygame.mixer.Sound(os.path.join("res", "shuffling.wav"))
 
     
     # Render function
@@ -201,7 +210,7 @@ class Game:
         self.computer_ch = random.randint(0, 2)
 
 
-    def score(self):
+    def update_score(self):
         """Calculate round result and update scores.
         
         Compares computer and player choices using predefined winning combinations.
@@ -213,11 +222,14 @@ class Game:
         if ch_tuple in self.computer_wins:
             self.computer_score += 1
             self.top_instruction = "Computer wins!"
+            self.loss_sfx.play()
         elif ch_tuple in self.player_wins:
             self.player_score += 1
             self.top_instruction = "You win!"
+            self.win_sfx.play()
         else:
             self.top_instruction = "Draw!"
+            self.draw_sfx.play()
 
         # Update instruction for next round
         self.bottom_instruction = "Click anywhere to continue."
@@ -247,14 +259,16 @@ class Game:
             # Process round end
             self.playing = False
             self.shuffling_hand = False
+            self.shuffling_sfx.stop()
             self.random_choice()
-            self.score()
+            self.update_score()
         else:
             # Start new round
             self.playing = True
             self.shuffling_hand = True
             self.top_instruction = "Choose your move:"
             self.bottom_instruction = "Click on an image to play"
+            self.shuffling_sfx.play()
 
 
     def handle_keypress(self, key):
@@ -285,6 +299,7 @@ class Game:
             # Process round end
             self.playing = False
             self.shuffling_hand = False
+            self.shuffling_sfx.stop()
             self.random_choice()
             self.score()
         else:
@@ -293,6 +308,7 @@ class Game:
             self.shuffling_hand = True
             self.top_instruction = "Choose your move:"
             self.bottom_instruction = "Press R, P, or S to play"
+            self.shuffling_sfx.play()
 
 
     def loop(self):
@@ -341,14 +357,17 @@ class Game:
         """
         self.running = True  # Controls the main game loop
         self.playing = True  # Controls the gameplay state
+        self.shuffling_sfx.play()
         while self.running:
             self.loop()
         self.quit_game()
     
+
     def quit_game(self):
         """Clean up and exit the game.
         
         Properly closes Pygame and releases system resources.
         """
         pygame.quit()
+        sys.exit()
 

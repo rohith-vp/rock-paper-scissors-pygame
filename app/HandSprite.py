@@ -9,3 +9,4 @@ class HandSprite(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = position
         self.type = None  # 0: rock, 1: paper, 2: scissors
+
