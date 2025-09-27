@@ -9,6 +9,7 @@ A simple Rock Paper Scissors game built with Pygame. Play against the computer i
 - Score tracking
 - Clean and intuitive interface
 - Responsive controls (R, P, S keys)
+- Smooth animations and transitions
 
 ## Installation
 
