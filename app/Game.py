@@ -36,7 +36,7 @@ class Game:
         self.shuffling_hand = True
 
         self.top_instruction = "Choose your move:"
-        self.bottom_instruction = "Press R, P, or S to play"
+        self.bottom_instruction = "Click on an image to play"
 
         # Initialize choices and scores
         self.computer_ch = 0
@@ -91,6 +91,10 @@ class Game:
         self.rock_rect_bottom = self.rock_image.get_rect()
         self.paper_rect_bottom = self.paper_image.get_rect()
         self.scissors_rect_bottom = self.scissors_image.get_rect()
+        
+        # Create rectangles for side hands
+        self.rock_rect_left = self.rock_image.get_rect()
+        self.scissors_rect_right = self.scissors_image.get_rect()
 
         # Position computer's hand in top half (y=150)
         self.rock_rect_top.center = (200, 150)
@@ -101,6 +105,10 @@ class Game:
         self.rock_rect_bottom.center = (200, 450)
         self.paper_rect_bottom.center = (200, 450)
         self.scissors_rect_bottom.center = (200, 450)
+
+        # Position the side hands
+        self.rock_rect_left.center = (75, 450)  # Left side
+        self.scissors_rect_right.center = (325, 450)  # Right side
 
     
     # Render function
@@ -148,12 +156,17 @@ class Game:
             self.screen.blit(self.scissors_image, self.scissors_rect_top)
             
         # Draw player hand
-        if self.player_ch == 0:
-            self.screen.blit(self.rock_image, self.rock_rect_bottom)
-        elif self.player_ch == 1:
-            self.screen.blit(self.paper_image, self.paper_rect_bottom)
-        elif self.player_ch == 2:
-            self.screen.blit(self.scissors_image, self.scissors_rect_bottom)
+        if self.playing:
+            self.screen.blit(self.rock_image, self.rock_rect_left)  # Rock on the left
+            self.screen.blit(self.paper_image, self.paper_rect_bottom) # Paper in the middle
+            self.screen.blit(self.scissors_image, self.scissors_rect_right)  # Scissors on the right
+        else:
+            if self.player_ch == 0:
+                self.screen.blit(self.rock_image, self.rock_rect_bottom)
+            elif self.player_ch == 1:
+                self.screen.blit(self.paper_image, self.paper_rect_bottom)
+            elif self.player_ch == 2:
+                self.screen.blit(self.scissors_image, self.scissors_rect_bottom)
             
         # Update the display
         pygame.display.flip()
@@ -195,7 +208,45 @@ class Game:
             self.top_instruction = "Draw!"
 
         # Update instruction for next round
-        self.bottom_instruction = "Press any key to continue."
+        self.bottom_instruction = "Click anywhere to continue."
+
+
+    def handle_mouse_click(self, pos):
+        """Handle mouse clicks on the game images.
+        
+        During gameplay:
+        - Left rock image: Select Rock (0)
+        - Center image: Select Paper (1)
+        - Right scissors image: Select Scissors (2)
+        
+        After round:
+        - Any click: Start new round
+        """
+        if self.playing:
+            # Check if click is on any of the bottom images
+            if self.rock_rect_left.collidepoint(pos):
+                self.player_ch = 0  # Rock
+                self.shuffling_hand = False
+            elif self.paper_rect_bottom.collidepoint(pos):
+                self.player_ch = 1  # Paper
+                self.shuffling_hand = False
+            elif self.scissors_rect_right.collidepoint(pos):
+                self.player_ch = 2  # Scissors
+                self.shuffling_hand = False
+            else:
+                return  # Click was not on any image
+            
+            # Process round end
+            self.playing = False
+            self.shuffling_hand = False
+            self.random_choice()
+            self.score()
+        else:
+            # Start new round
+            self.playing = True
+            self.shuffling_hand = True
+            self.top_instruction = "Choose your move:"
+            self.bottom_instruction = "Click on an image to play"
 
 
     def handle_keypress(self, key):
@@ -240,7 +291,7 @@ class Game:
         """Main game loop.
         
         Handles:
-        - Event processing (quit signals and keyboard input)
+        - Event processing (quit signals, keyboard input, and mouse clicks)
         - Computer hand animation
         - Screen rendering
         
@@ -250,6 +301,10 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                # Handle mouse clicks
+                if event.button == 1:  # Left click
+                    self.handle_mouse_click(event.pos)
             elif event.type == pygame.KEYDOWN:
                 # Handle Alt+F4 for graceful exit
                 if event.key == pygame.K_F4 and pygame.key.get_mods() & pygame.KMOD_ALT:
