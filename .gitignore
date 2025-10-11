@@ -8,3 +8,6 @@ ENV/
 .vs/
 .vscode/
 *.pyc
+build/
+dist/
+*.spec

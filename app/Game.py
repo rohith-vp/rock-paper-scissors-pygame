@@ -1,20 +1,39 @@
 import pygame
-import os
 import sys
 import time
 import random
 
 from HandSprite import HandSprite
+from utils import resource_path
 
 
 class Game:
+    """Main game class for Rock Paper Scissors.
+    
+    This class manages the entire game including window setup, sprite management,
+    user input handling, game logic, sound effects, and display rendering.
+    The game supports both mouse and keyboard controls, features animated
+    computer moves, and keeps track of player and computer scores.
+    """
+
     def __init__(self, size, caption, icon_path):
         """Initialize the Rock Paper Scissors game.
         
+        Sets up the game window, loads resources, initializes sprites and sound effects,
+        and prepares the initial game state.
+        
         Args:
-            size: Tuple of (width, height) for the game window
-            caption: String to display in the window title bar
-            icon_path: Path to the window icon image
+            size (tuple): Window dimensions as (width, height)
+            caption (str): Text to display in the window title bar
+            icon_path (str): Path to the window icon image file
+        
+        Attributes initialized:
+            screen: Main display surface
+            font: Game text font
+            clock: Frame rate controller
+            computer_score, player_score: Game scores
+            playing: Current game state
+            shuffling_hand: Computer animation state
         """
         pygame.init()
         self.screen = pygame.display.set_mode(size)
@@ -75,13 +94,13 @@ class Game:
         and scales them to 100x100 pixels for consistent display.
         """
         # Load and scale hand gesture images
-        self.rock_image = pygame.image.load(os.path.join("res", "rock.png"))
+        self.rock_image = pygame.image.load(resource_path("res/rock.png"))
         self.rock_image = pygame.transform.scale(self.rock_image, (100, 100))
 
-        self.paper_image = pygame.image.load(os.path.join("res", "paper.png"))
+        self.paper_image = pygame.image.load(resource_path("res/paper.png"))
         self.paper_image = pygame.transform.scale(self.paper_image, (100, 100))
 
-        self.scissors_image = pygame.image.load(os.path.join("res", "scissors.png"))
+        self.scissors_image = pygame.image.load(resource_path("res/scissors.png"))
         self.scissors_image = pygame.transform.scale(self.scissors_image, (100, 100))
     
 
@@ -122,14 +141,38 @@ class Game:
 
 
     def init_sfx(self):
-        self.win_sfx = pygame.mixer.Sound(os.path.join("res", "win.wav"))
-        self.loss_sfx = pygame.mixer.Sound(os.path.join("res", "loss.wav"))
-        self.draw_sfx = pygame.mixer.Sound(os.path.join("res", "draw.wav"))
-        self.shuffling_sfx = pygame.mixer.Sound(os.path.join("res", "shuffling.wav"))
+        """Initialize game sound effects.
+        
+        Loads sound files from the res directory:
+        - win.wav: Played on player victory
+        - loss.wav: Played on computer victory
+        - draw.wav: Played on tie games
+        - shuffling.wav: Background sound during computer's turn
+        
+        Each sound is loaded as a Pygame Sound object for efficient playback.
+        Sound files should be in .wav format for best compatibility.
+        """
+        self.win_sfx = pygame.mixer.Sound(resource_path("res/win.wav"))
+        self.loss_sfx = pygame.mixer.Sound(resource_path("res/loss.wav"))
+        self.draw_sfx = pygame.mixer.Sound(resource_path("res/draw.wav"))
+        self.shuffling_sfx = pygame.mixer.Sound(resource_path("res/shuffling.wav"))
 
     
-    # Render function
     def render(self):
+        """Render the current game state to the screen.
+        
+        Draws all game elements in the following order:
+        1. Background (dark color)
+        2. Score display and player labels
+        3. Instruction text (top and bottom)
+        4. Center dividing line
+        5. Computer's current hand (top)
+        6. Player's hand(s) (bottom):
+           - During play: All three options
+           - After choice: Selected hand only
+        
+        All text is centered and white on dark background.
+        """
         # Clear the screen with a dark background
         self.screen.fill((20, 20, 20))
 
@@ -192,8 +235,16 @@ class Game:
         pygame.display.flip()
 
     
-    # Shuffle hand
     def shuffle_hand(self):
+        """Animate computer's hand by cycling through options.
+        
+        Called periodically during the player's turn to create
+        an animation effect. Cycles through:
+        0 -> 1 -> 2 -> 0 (Rock -> Paper -> Scissors -> Rock)
+        
+        The animation runs at a fixed interval (0.2 seconds)
+        controlled by the main game loop.
+        """
         self.computer_ch += 1
         if self.computer_ch == 3:
             self.computer_ch = 0
@@ -213,8 +264,15 @@ class Game:
     def update_score(self):
         """Calculate round result and update scores.
         
-        Compares computer and player choices using predefined winning combinations.
-        Updates scores and display messages based on the outcome.
+        Determines the winner based on classic Rock Paper Scissors rules:
+        - Rock beats Scissors
+        - Paper beats Rock
+        - Scissors beats Paper
+        
+        Updates:
+        - Player and computer scores
+        - Display messages for next round
+        - Plays appropriate sound effect (win/loss/draw)
         """
         ch_tuple = (self.computer_ch, self.player_ch)
         
@@ -312,14 +370,24 @@ class Game:
 
 
     def loop(self):
-        """Main game loop.
+        """Main game loop handling all real-time game updates.
         
-        Handles:
-        - Event processing (quit signals, keyboard input, and mouse clicks)
-        - Computer hand animation
-        - Screen rendering
+        Processes in order:
+        1. Event handling:
+           - Window close (X button)
+           - Mouse clicks (left button only)
+           - Keyboard input (R,P,S keys)
+           - Alt+F4 for quick exit
         
-        The loop runs continuously until the game is quit.
+        2. Animation updates:
+           - Computer's hand shuffling (if active)
+           - Timing controlled by self.prev_time
+        
+        3. Display updates:
+           - Renders current game state
+           - Maintains 60 FPS using game clock
+        
+        The loop continues until self.running is set to False.
         """
         # Process all pending events
         for event in pygame.event.get():
@@ -352,8 +420,16 @@ class Game:
     def start_game(self):
         """Start and run the game.
         
-        Initializes game state and enters the main game loop.
-        Continues running until the game is quit, then performs cleanup.
+        Entry point for the game that:
+        1. Sets initial game state (running=True, playing=True)
+        2. Starts the background shuffling sound
+        3. Enters the main game loop
+        4. Handles graceful shutdown when game ends
+        
+        The game runs until either:
+        - Player closes the window
+        - Player presses Alt+F4
+        - An unhandled exception occurs
         """
         self.running = True  # Controls the main game loop
         self.playing = True  # Controls the gameplay state
@@ -366,7 +442,13 @@ class Game:
     def quit_game(self):
         """Clean up and exit the game.
         
-        Properly closes Pygame and releases system resources.
+        Performs graceful shutdown:
+        1. Stops all running sounds
+        2. Closes the Pygame display
+        3. Releases system resources
+        4. Exits the program
+        
+        This ensures no resources are left hanging when the game closes.
         """
         pygame.quit()
         sys.exit()
